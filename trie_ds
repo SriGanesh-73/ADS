@@ -1,0 +1,151 @@
+#include<iostream>
+#include<vector>
+#include<string>
+#include<algorithm>
+using namespace std;
+
+class TrieNode {
+public:
+    TrieNode* alpha[26];
+    bool isLeaf;
+
+    TrieNode() {
+        for (int i = 0; i < 26; i++) {
+            alpha[i] = nullptr;
+        }
+        isLeaf = false;
+    }
+};
+
+class Trie {
+public:
+    TrieNode* insert(TrieNode* root, const string& key) {
+        if (root == nullptr) {
+            root = new TrieNode();
+        }
+        TrieNode* curr = root;
+        for (char ch : key) {
+            if (curr->alpha[ch - 'a'] == nullptr) {
+                TrieNode* newnode = new TrieNode();
+                curr->alpha[ch - 'a'] = newnode;
+            }
+            curr = curr->alpha[ch - 'a'];
+        }
+        curr->isLeaf = true;
+        return root;
+    }
+
+    bool search(TrieNode* root, const string& key) {
+        if (root == nullptr) return false;
+        TrieNode* curr = root;
+        for (char ch : key) {
+            if (curr->alpha[ch - 'a'] == nullptr) return false;
+            curr = curr->alpha[ch - 'a'];
+        }
+        return curr->isLeaf;
+    }
+
+    vector<string> autocompleteHelper(TrieNode* node, const string& prefix) {
+        vector<string> result;
+        if (node == nullptr) return result;
+
+        if (node->isLeaf) {
+            result.push_back(prefix);
+        }
+
+        for (char i = 0; i < 26; i++) {
+            if (node->alpha[i] != nullptr) {
+                vector<string> childWords = autocompleteHelper(node->alpha[i], prefix + char(i + 'a'));
+                result.insert(result.end(), childWords.begin(), childWords.end());
+            }
+        }
+        return result;
+    }
+
+    vector<string> spellCheck(TrieNode* root, const string& word) {
+        vector<string> corrections;
+        if (search(root, word)) {
+            corrections.push_back(word);
+            return corrections;
+        } else {
+            return autocompleteSuggestions(root, word);
+        }
+    }
+
+private:
+    vector<string> autocompleteSuggestions(TrieNode* root, const string& prefix) {
+        TrieNode* curr = root;
+        for (char ch : prefix) {
+            if (curr->alpha[ch - 'a'] == nullptr) {
+                return {};  // No words with this prefix
+            }
+            curr = curr->alpha[ch - 'a'];
+        }
+        return autocompleteHelper(curr, prefix);
+    }
+};
+
+int main() {
+    Trie trie;
+    TrieNode* root = nullptr;
+
+    int choice;
+    string word;
+    
+    while (true) {
+        cout << "\nMenu:\n";
+        cout << "1. Insert a word\n";
+        cout << "2. Search for a word\n";
+        cout << "3. Check spelling with suggestions\n";
+        cout << "4. Exit\n";
+        cout << "Enter your choice: ";
+        cin >> choice;
+
+        switch (choice) {
+            case 1:
+                cout << "Enter a word to insert: ";
+                cin >> word;
+                root = trie.insert(root, word);
+                cout << word << " inserted successfully.\n";
+                break;
+            
+            case 2:
+                cout << "Enter a word to search: ";
+                cin >> word;
+                if (trie.search(root, word)) {
+                    cout << word << " is a valid word!\n";
+                } else {
+                    cout << word << " is not a valid word.\n";
+                }
+                break;
+            
+            case 3:
+                cout << "Enter a word to check spelling: ";
+                cin >> word;
+                vector<string> corrections = trie.spellCheck(root, word);
+                
+                if (!corrections.empty()) {
+                    if (corrections.size() == 1 && corrections[0] == word) {
+                        cout << word << " is a valid word!\n";
+                    } else {
+                        cout << word << " is not a valid word. Suggestions: \n";
+                        for (const string& correction : corrections) {
+                            cout << correction << endl;
+                        }
+                    }
+                } else {
+                    cout << "No suggestions found.\n";
+                }
+                break;
+            
+            case 4:
+                cout << "Exiting the program.\n";
+                return 0;
+
+            default:
+                cout << "Invalid choice! Please try again.\n";
+        }
+    }
+
+    return 0;
+}
