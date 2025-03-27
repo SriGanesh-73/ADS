@@ -43,11 +43,21 @@ private:
     void consolidate() {
         int maxDegree = (int)log2(nodeCount) + 1;
         vector<Node*> degreeTable(maxDegree, nullptr);
+        
+        if (minNode == nullptr) return;
+        
+        vector<Node*> roots;
         Node* current = minNode;
         do {
-            Node* x = current;
+            roots.push_back(current);
+            current = current->next;
+        } while (current != minNode);
+        
+        for (Node* node : roots) {
+            Node* x = node;
             int d = x->degree;
-            while (degreeTable[d]) {
+            
+            while (degreeTable[d] != nullptr) {
                 Node* y = degreeTable[d];
                 if (y->data < x->data) {
                     swap(x, y);
@@ -57,14 +67,24 @@ private:
                 d++;
             }
             degreeTable[d] = x;
-            current = current->next;
-        } while (current != minNode);
+        }
         
         minNode = nullptr;
         for (Node* node : degreeTable) {
             if (node != nullptr) {
-                if (minNode == nullptr || node->data < minNode->data) {
+                if (minNode == nullptr) {
                     minNode = node;
+                    node->next = node;
+                    node->prev = node;
+                } else {
+                    node->prev = minNode->prev;
+                    node->next = minNode;
+                    minNode->prev->next = node;
+                    minNode->prev = node;
+                    
+                    if (node->data < minNode->data) {
+                        minNode = node;
+                    }
                 }
             }
         }
@@ -75,6 +95,8 @@ private:
             y->child = nullptr;
         } else {
             y->child = x->next;
+            x->next->prev = x->prev;
+            x->prev->next = x->next;
         }
         y->degree--;
         x->next = minNode;
@@ -147,13 +169,23 @@ public:
         if (z != nullptr) {
             if (z->child != nullptr) {
                 Node* child = z->child;
+                Node* tempChild;
                 do {
+                    tempChild = child->next;
                     child->parent = nullptr;
-                    child = child->next;
+                    
+                    child->prev = minNode->prev;
+                    child->next = minNode;
+                    minNode->prev->next = child;
+                    minNode->prev = child;
+                    
+                    child = tempChild;
                 } while (child != z->child);
             }
+            
             z->prev->next = z->next;
             z->next->prev = z->prev;
+            
             if (z == z->next) {
                 minNode = nullptr;
             } else {
@@ -166,19 +198,32 @@ public:
     }
 
     void merge(FibonacciHeap& other) {
+        if (other.minNode == nullptr) {
+            return;  // Nothing to merge
+        }
         if (minNode == nullptr) {
             minNode = other.minNode;
-        } else if (other.minNode != nullptr) {
-            Node* temp = minNode->next;
-            minNode->next = other.minNode->next;
-            other.minNode->next->prev = minNode;
-            other.minNode->next = temp;
-            temp->prev = other.minNode;
-            if (other.minNode->data < minNode->data) {
-                minNode = other.minNode;
-            }
+            nodeCount = other.nodeCount;
+            other.minNode = nullptr;
+            other.nodeCount = 0;
+            return;
         }
+
+        Node* thisLast = minNode->prev;
+        Node* otherLast = other.minNode->prev;
+        
+        minNode->prev = otherLast;
+        otherLast->next = minNode;
+        
+        thisLast->next = other.minNode;
+        other.minNode->prev = thisLast;
+
+        if (other.minNode->data < minNode->data) {
+            minNode = other.minNode;
+        }
+
         nodeCount += other.nodeCount;
+
         other.minNode = nullptr;
         other.nodeCount = 0;
     }
@@ -207,78 +252,76 @@ int main() {
     FibonacciHeap heap;
     FibonacciHeap heap2;
     int choice, value;
-    Node* nodePtr;
-
-    do {
-        cout << "\nMenu:\n";
-        cout << "1. Insert element into heap\n";
-        cout << "2. Decrease key\n";
-        cout << "3. Extract minimum\n";
-        cout << "4. Merge with another heap\n";
-        cout << "5. Display heap\n";
-        cout << "6. Find minimum\n";
-        cout << "7. Exit\n";
+    bool running = true;
+    
+    cout << "\n=== Fibonacci Heap Implementation ===\n";
+    
+    while (running) {
+        cout << "\nMenu Options:" << endl;
+        cout << "1. Insert a value into primary heap" << endl;
+        cout << "2. Insert a value into secondary heap" << endl;
+        cout << "3. Extract minimum from primary heap" << endl;
+        cout << "4. Merge secondary heap into primary heap" << endl;
+        cout << "5. Display primary heap" << endl;
+        cout << "6. Display secondary heap" << endl;
+        cout << "7. Exit" << endl;
         cout << "Enter your choice: ";
         cin >> choice;
-
+        
         switch (choice) {
             case 1:
-                cout << "Enter value to insert: ";
+                cout << "Enter value to insert into primary heap: ";
                 cin >> value;
                 heap.insert(value);
+                cout << "Value " << value << " inserted into primary heap." << endl;
                 break;
-
+                
             case 2:
-                cout << "Enter node value to decrease key: ";
+                cout << "Enter value to insert into secondary heap: ";
                 cin >> value;
-                nodePtr = heap.findMin();
-                while (nodePtr && nodePtr->data != value) {
-                    nodePtr = nodePtr->next;
-                }
-                if (nodePtr) {
-                    int newKey;
-                    cout << "Enter new key: ";
-                    cin >> newKey;
-                    heap.decreaseKey(nodePtr, newKey);
-                } else {
-                    cout << "Node not found!" << endl;
-                }
+                heap2.insert(value);
+                cout << "Value " << value << " inserted into secondary heap." << endl;
                 break;
-
+                
             case 3:
-                cout << "Extracting minimum element\n";
-                heap.extractMin();
-                break;
-
-            case 4:
-                cout << "Enter elements for the second heap (0 to stop):\n";
-                while (true) {
-                    cout << "Enter value: ";
-                    cin >> value;
-                    if (value == 0) break;
-                    heap2.insert(value);
+                if (heap.isEmpty()) {
+                    cout << "Primary heap is empty!" << endl;
+                } else {
+                    cout << "Minimum value in primary heap: " << heap.findMin()->data << endl;
+                    heap.extractMin();
+                    cout << "Minimum value extracted." << endl;
                 }
-                heap.merge(heap2);
-                cout << "Heaps merged.\n";
                 break;
-
+                
+            case 4:
+                if (heap2.isEmpty()) {
+                    cout << "Secondary heap is empty! Nothing to merge." << endl;
+                } else {
+                    heap.merge(heap2);
+                    cout << "Secondary heap merged into primary heap." << endl;
+                }
+                break;
+                
             case 5:
-                cout << "Current heap: ";
+                cout << "Primary heap contents: ";
                 heap.printHeap();
                 break;
-
+                
             case 6:
-                cout << "Minimum element: " << heap.findMin()->data << endl;
+                cout << "Secondary heap contents: ";
+                heap2.printHeap();
                 break;
-
+                
             case 7:
-                cout << "Exiting program.\n";
+                cout << "Exiting program..." << endl;
+                running = false;
                 break;
-
+                
             default:
-                cout << "Invalid choice, please try again.\n";
+                cout << "Invalid choice! Please try again." << endl;
+                break;
         }
-    } while (choice != 7);
-
+    }
+    
     return 0;
 }
